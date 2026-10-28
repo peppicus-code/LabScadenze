@@ -1,3 +1,4 @@
 streamlit
 qrcode
 reportlab
+psycopg[binary]
