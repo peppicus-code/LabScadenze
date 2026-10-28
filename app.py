@@ -66,7 +66,6 @@ if not st.session_state["logged_in"]:
             st.rerun()
         else:
             res = esegui_query("SELECT nominativo FROM dipendenti WHERE username = %s AND password_accesso = %s;", (username, password))
-            # CORREZIONE: Verifichiamo che res sia una lista non vuota ed estraiamo il primo record [0]
             if res and len(res) > 0:
                 singolo_utente = res[0]
                 st.session_state["logged_in"] = True
@@ -196,7 +195,7 @@ else:
 
     # VISUALIZZAZIONE TABELLE
     st.subheader("📋 Elenco delle Scadenze Aziendali Attive")
-    sql_select = "SELECT id, cantiere, descrizione, data_scadenza, categoria FROM scadenze ORDER BY data_scadenza ASC;" if has_categoria_column else "SELECT id, cantiere, descrizione, data_scadenza FROM scadenze ORDER BY data_scadenza ASC;"
+    sql_select = "SELECT id, cantiere, descrizione, data_scadenza, categoria FROM scadenze ORDER BY data_scadenza ASC;"
     rows = esegui_query(sql_select)
 
     if rows:
@@ -207,6 +206,9 @@ else:
         if st.session_state["ruolo"] == "admin":
             tab_views = st.tabs(CATEGORIE_AZIENDALI)
             for i, cat_name in enumerate(CATEGORIE_AZIENDALI):
+                with tab_views[i]:
+                    df_filtrato = raw_df[raw_df['categoria'] == cat_name]
+                    if not df_filtrato.empty:
 
 
 
