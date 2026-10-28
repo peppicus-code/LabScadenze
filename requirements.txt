@@ -2,3 +2,4 @@ streamlit
 qrcode
 reportlab
 psycopg[binary]
+sqlalchemy
