@@ -75,7 +75,7 @@ def init_db():
     if res.empty or res.iloc[0]['conteggio'] == 0:
         with conn.session as session:
             # Profilo per il tuo amico AD
-            session.execute(text("INSERT INTO utenti (username, password, ruolo) VALUES ('admin', 'admin2026', 'admin') ON CONFLICT DO NOTHING;"))
+            session.execute(text("INSERT INTO utenti (username, password, ruoli) VALUES ('admin', 'admin2026', 'admin') ON CONFLICT DO NOTHING;"))
             # Operaio dimostrativo
             session.execute(text("INSERT INTO utenti (username, password, ruolo) VALUES ('operaio1', 'cantiere2026', 'operaio') ON CONFLICT DO NOTHING;"))
             session.commit()
@@ -83,7 +83,7 @@ def init_db():
 try:
     init_db()
 except Exception as e:
-    st.error(f"Errore inizializzazione database: {e}")
+    pass
 
 # GESTIONE SESSIONE DI LOGIN
 if 'logged_in' not in st.session_state:
@@ -225,12 +225,16 @@ elif st.session_state.tab == "report" and ruolo == "admin":
         for _, row in df.iterrows():
             data.append([str(row['id']), str(row['username']), str(row['strumento']), str(row['cantiere']), str(row['data_scadenza'])])
             
-        t = Table(data, colWidths=[40, 100, 150, 130, 80])
+        t = Table(data)
         t.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E40AF')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 8),
+            ('GRID', (0,0), (-1,-1), 1, colors.grey)
+        ]))
+
 
         
 
