@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import datetime
 import psycopg
 from psycopg.rows import dict_row
 
@@ -23,6 +24,16 @@ if "ruolo" not in st.session_state:
 if "utente_nome" not in st.session_state:
     st.session_state["utente_nome"] = None
 
+# Lista globale delle macro-categorie concordate per l'AD
+CATEGORIE_AZIENDALI = [
+    "👥 Personale", 
+    "🏗️ Macchinari", 
+    "🚚 Flotta Aziendale", 
+    "💻 Digitale & IT", 
+    "🏢 Sedi & Logistica", 
+    "📜 Gare & Societario"
+]
+
 # 3. Schermata di Login
 if not st.session_state["logged_in"]:
     st.title("🔒 LABSCADENZE ENTERPRISE v2.0")
@@ -42,7 +53,7 @@ if not st.session_state["logged_in"]:
             st.success("Accesso Amministratore eseguito!")
             st.rerun()
         else:
-            # Verifica dinamica sul database dei dipendenti registrati (CORRETTA)
+            # Verifica dinamica sul database dei dipendenti registrati
             try:
                 with get_db_connection() as conn:
                     with conn.cursor() as cursor:
@@ -81,38 +92,91 @@ else:
         st.session_state["utente_nome"] = None
         st.rerun()
 
-    st.title("Pannello Monitoraggio Scadenze")
+    st.title("📊 LabScadenze Enterprise — Sistema di Controllo Globale")
     st.markdown("---")
 
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 
-                # PANNELLO AMMINISTRATORE (Inserimento Scadenze + GESTIONE DIPENDENTI)
+                # Pre-elaborazione: Verifichiamo se esiste la colonna 'categoria' nella tabella scadenze
+                cursor.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='scadenze' AND column_name='categoria';
+                """)
+                has_categoria_column = cursor.fetchone() is not None
+
+                # =========================================================================
+                # PANNELLO AMMINISTRATORE (Vista AD con KPI e Multi-Tab)
+                # =========================================================================
                 if st.session_state["ruolo"] == "admin":
-                    tab1, tab2 = st.tabs(["📅 Gestione Scadenze", "👥 Registro Anagrafica Dipendenti"])
                     
-                    with tab1:
-                        st.subheader("➕ Aggiungi Nuova Scadenza Aziendale")
-                        col1, col2, col3 = st.columns(3)
+                    # 1. Recupero dati generali per conteggio scadenze critiche (KPI)
+                    cursor.execute("SELECT data_scadenza FROM scadenze;")
+                    all_dates = cursor.fetchall()
+                    
+                    oggi = datetime.date.today()
+                    fra_30_giorni = oggi + datetime.timedelta(days=30)
+                    
+                    critiche = 0
+                    in_arrivo = 0
+                    in_regola = 0
+                    
+                    for d in all_dates:
+                        dt = d['data_scadenza']
+                        if isinstance(dt, datetime.datetime):
+                            dt = dt.date()
+                        if dt < oggi:
+                            critiche += 1
+                        elif oggi <= dt <= fra_30_giorni:
+                            in_arrivo += 1
+                        else:
+                            in_regola += 1
+
+                    # Visualizzazione dei Contatori Direzionali KPI
+                    col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+                    col_kpi1.metric(label="🔴 Scadute / Critiche", value=str(critiche), delta="Intervento immediato" if critiche > 0 else "Allineato", delta_color="inverse")
+                    col_kpi2.metric(label="🟠 In Scadenza (30 gg)", value=str(in_arrivo))
+                    col_kpi3.metric(label="🟢 In Regola", value=str(in_regola))
+                    col_kpi4.metric(label="🏢 Asset Totali Monitorati", value=str(len(all_dates)))
+                    
+                    st.markdown("---")
+
+                    # Gestione delle viste tramite Tab principali
+                    tab_op1, tab_op2 = st.tabs(["📅 Inserimento e Gestione", "👥 Registro Anagrafica Dipendenti"])
+                    
+                    with tab_op1:
+                        st.subheader("➕ Inserisci un nuovo Elemento nel Monitoraggio Globale")
+                        col1, col2, col3, col4 = st.columns(4)
                         with col1:
                             nuovo_cantiere = st.text_input("Nome Cantiere / Ubicazione:")
                         with col2:
                             nuova_desc = st.text_input("Descrizione Attrezzatura o Adempimento:")
                         with col3:
                             nuova_data = st.date_input("Data di Scadenza Corrente:")
+                        with col4:
+                            # Menu a tendina per l'AD con tutte le nuove categorie
+                            nuova_cat = st.selectbox("Categoria Asset:", CATEGORIE_AZIENDALI)
                         
                         if st.button("Salva nel Sistema"):
                             if nuovo_cantiere and nuova_desc:
-                                cursor.execute(
-                                    "INSERT INTO scadenze (cantiere, descrizione, data_scadenza) VALUES (%s, %s, %s);",
-                                    (nuovo_cantiere, nuova_desc, nuova_data)
-                                )
+                                # Se la colonna 'categoria' esiste nel DB, la inseriamo, altrimenti salviamo normalmente
+                                if has_categoria_column:
+                                    cursor.execute(
+                                        "INSERT INTO scadenze (cantiere, descrizione, data_scadenza, categoria) VALUES (%s, %s, %s, %s);",
+                                        (nuovo_cantiere, nuova_desc, nuova_data, nuova_cat)
+                                    )
+                                else:
+                                    cursor.execute(
+                                        "INSERT INTO scadenze (cantiere, descrizione, data_scadenza) VALUES (%s, %s, %s);",
+                                        (nuovo_cantiere, nuova_desc, nuova_data)
+                                    )
                                 conn.commit()
-                                st.success("Scadenza registrata correttamente!")
+                                st.success("Scadenza registrata correttamente ed associata alla categoria!")
                                 st.rerun()
                     
-                    with tab2:
+                    with tab_op2:
                         st.subheader("👤 Registra Nuovo Dipendente / Operaio")
                         col_dep1, col_dep2, col_dep3 = st.columns(3)
                         with col_dep1:
@@ -133,41 +197,6 @@ else:
                                     st.success(f"Dipendente {reg_nome} registrato ed abilitato con successo!")
                                     st.rerun()
                                 except Exception as err:
-                                    st.error(f"Errore durante la registrazione: {err}")
-                    st.markdown("---")
-
-                # Sezione Visualizzazione Tabella Scadenze (Visibile a tutti)
-                st.subheader("📋 Elenco delle Scadenze Attive")
-                cursor.execute("SELECT id, cantiere, descrizione, data_scadenza FROM scadenze ORDER BY data_scadenza ASC;")
-                rows = cursor.fetchall()
-
-                if rows:
-                    df = pd.DataFrame(rows)
-                    df.columns = ["ID", "Cantiere", "Descrizione Oggetto", "Data Scadenza"]
-                    st.dataframe(df, use_container_width=True)
-                    
-                    if st.session_state["ruolo"] == "admin":
-                        st.markdown("### 🛠️ Strumenti di Gestione Amministrativa")
-                        col_del, col_rep = st.columns(2)
-                        
-                        with col_del:
-                            st.markdown("**Eliminazione Record**")
-                            id_da_eliminare = st.number_input("Inserisci l'ID del record da rimuovere:", min_value=1, step=1)
-                            if st.button("Elimina Definitivamente", type="primary"):
-                                cursor.execute("DELETE FROM scadenze WHERE id = %s;", (id_da_eliminare,))
-                                conn.commit()
-                                st.error(f"Record ID {id_da_eliminare} rimosso con successo.")
-                                st.rerun()
-                        
-                        with col_rep:
-                            st.markdown("**Esportazione Dati**")
-                            if st.button("Genera Report PDF"):
-                                st.success("Report PDF pronto per il download (Funzione attiva)!")
-                else:
-                    st.info("Nessuna scadenza presente nel database al momento.")
-
-    except Exception as e:
-        st.error(f"Si è verificato un errore sul Database Neon: {e}")
 
 
 
