@@ -69,8 +69,8 @@ if not st.session_state["logged_in"]:
             if res:
                 st.session_state["logged_in"] = True
                 st.session_state["ruolo"] = "operaio"
-                st.session_state["utente_nome"] = res[0]["nominativo"]
-                st.success(f"Accesso eseguito come {res[0]['nominativo']}!")
+                st.session_state["utente_nome"] = res["nominativo"]
+                st.success(f"Accesso eseguito come {res['nominativo']}!")
                 st.rerun()
             else:
                 if username.startswith("operaio") and password == "operaio2026":
@@ -102,7 +102,7 @@ else:
     """)
     has_categoria_column = len(check_col) > 0 if check_col is not None else False
 
-    # PANNELLO AMMINISTRATORE (KPI + INSERIMENTO)
+    # PANNELLO AMMINISTRATORE (KPI + INSERIMENTO DINAMICO)
     if st.session_state["ruolo"] == "admin":
         all_dates = esegui_query("SELECT data_scadenza FROM scadenze;")
         all_dates = all_dates if all_dates is not None else []
@@ -133,24 +133,50 @@ else:
         
         with tab_op1:
             st.subheader("➕ Inserisci un nuovo Elemento nel Monitoraggio Globale")
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                nuovo_cantiere = st.text_input("Nome Cantiere / Ubicazione:")
-            with col2:
-                nuova_desc = st.text_input("Descrizione Attrezzatura o Adempimento:")
-            with col3:
-                nuova_data = st.date_input("Data di Scadenza Corrente:")
-            with col4:
-                nuova_cat = st.selectbox("Categoria Asset:", CATEGORIE_AZIENDALI)
             
-            if st.button("Salva nel Sistema"):
-                if nuovo_cantiere and nuova_desc:
-                    if has_categoria_column:
-                        esegui_query("INSERT INTO scadenze (cantiere, descrizione, data_scadenza, categoria) VALUES (%s, %s, %s, %s);", (nuovo_cantiere, nuova_desc, nuova_data, nuova_cat))
-                    else:
-                        esegui_query("INSERT INTO scadenze (cantiere, descrizione, data_scadenza) VALUES (%s, %s, %s);", (nuovo_cantiere, nuova_desc, nuova_data))
-                    st.success("Scadenza registrata correttamente!")
-                    st.rerun()
+            # Estratto dal modulo form: la pagina reagisce ISTANTANEAMENTE al cambio di categoria
+            nuova_cat = st.selectbox("Seleziona il tipo di Categoria Asset:", CATEGORIE_AZIENDALI)
+            
+            # Messaggi di aiuto dinamici e contestuali basati sulla selezione attuale
+            if "Personale" in nuova_cat:
+                st.info("💡 Sottosezione Personale: Monitoraggio per idoneità medica, corsi sulla sicurezza D.Lgs 81/08 e abilitazioni dipendenti.")
+                etichetta_luogo = "Dipendente / Ruolo di Riferimento:"
+            elif "Macchinari" in nuova_cat:
+                st.warning("⚠️ Sottosezione Macchinari: Monitoraggio delle verifiche periodiche obbligatorie di legge ASL/ARPA per attrezzature pesanti.")
+                etichetta_luogo = "Cantiere / Posizione Attrezzatura:"
+            elif "Flotta" in nuova_cat:
+                st.success("🚚 Sottosezione Logistica Flotta: Monitoraggio delle scadenze di revisioni ministeriali, polizze RCA, bolli e leasing.")
+                etichetta_luogo = "Targa / Modello Mezzo:"
+            elif "Digitale" in nuova_cat:
+                st.info("💻 Sottosezione IT Aziendale: Scadenze critiche di caselle PEC societarie, rinnovi di Firme Digitali e licenze software.")
+                etichetta_luogo = "Servizio IT / Intestatario:"
+            elif "Sedi" in nuova_cat:
+                st.warning("🏢 Sottosezione Facility Management: Scadenze dei controlli semestrali di estintori, porte tagliafuoco e locazioni immobiliari.")
+                etichetta_luogo = "Fabbricato / Sede Operativa:"
+            else:
+                st.caption(f"Configurazione monitoraggio attiva per adempimenti societari, gare, attestazioni SOA, ISO o fideiussioni.")
+                etichetta_luogo = "Ente / Tipo Adempimento:"
+
+            # Form per i restanti dati testuali
+            with st.form("inserimento_scadenza_reattivo", clear_on_submit=True):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    nuovo_cantiere = st.text_input(etichetta_luogo)
+                with col2:
+                    nuova_desc = st.text_input("Descrizione Oggetto o Tipo di Scadenza:")
+                with col3:
+                    nuova_data = st.date_input("Data di Scadenza Corrente:")
+                
+                submit_scadenza = st.form_submit_button("Salva nel Sistema")
+                
+                if submit_scadenza:
+                    if nuovo_cantiere and nuova_desc:
+                        if has_categoria_column:
+                            esegui_query("INSERT INTO scadenze (cantiere, descrizione, data_scadenza, categoria) VALUES (%s, %s, %s, %s);", (nuovo_cantiere, nuova_desc, nuova_data, nuova_cat))
+                        else:
+                            esegui_query("INSERT INTO scadenze (cantiere, descrizione, data_scadenza) VALUES (%s, %s, %s);", (nuovo_cantiere, nuova_desc, nuova_data))
+                        st.success("Scadenza registrata correttamente ed inserita nei registri aziendali!")
+                        st.rerun()
         
         with tab_op2:
             st.subheader("👤 Registra Nuovo Dipendente / Operaio")
@@ -181,37 +207,7 @@ else:
         
         if st.session_state["ruolo"] == "admin":
             tab_views = st.tabs(CATEGORIE_AZIENDALI)
-            for i, cat_name in enumerate(CATEGORIE_AZIENDALI):
-                with tab_views[i]:
-                    df_filtrato = raw_df[raw_df['categoria'] == cat_name]
-                    if not df_filtrato.empty:
-                        df_clean = df_filtrato[["id", "cantiere", "descrizione", "data_scadenza"]].copy()
-                        df_clean.columns = ["ID", "Cantiere / Luogo", "Descrizione Oggetto / Adempimento", "Data Scadenza"]
-                        st.dataframe(df_clean, use_container_width=True, hide_index=True)
-                    else:
-                        st.info(f"Nessuna scadenza attiva per: {cat_name}")
-        else:
-            df_operaio = raw_df[["id", "cantiere", "descrizione", "data_scadenza"]].copy()
-            df_operaio.columns = ["ID", "Cantiere / Luogo", "Descrizione", "Data Scadenza"]
-            st.dataframe(df_operaio, use_container_width=True, hide_index=True)
 
-        if st.session_state["ruolo"] == "admin":
-            st.markdown("### 🛠️ Strumenti di Gestione Amministrativa")
-            col_del, col_rep = st.columns(2)
-            with col_del:
-                st.markdown("**Eliminazione Record**")
-                id_da_eliminare = st.number_input("Inserisci l'ID del record da rimuovere:", min_value=1, step=1)
-                if st.button("Elimina Definitivamente", type="primary"):
-                    esegui_query("DELETE FROM scadenze WHERE id = %s;", (id_da_eliminare,))
-                    st.error(f"Record ID {id_da_eliminare} rimosso.")
-                    st.rerun()
-            with col_rep:
-                st.markdown("**Report e Export Miner**")
-                st.caption("Esporta lo scadenziario aziendale unificato.")
-                csv_data = raw_df.to_csv(index=False).encode('utf-8')
-                st.download_button(label="📥 Scarica Report Excel / CSV", data=csv_data, file_name=f"report_scadenze_{datetime.date.today()}.csv", mime="text/csv")
-    else:
-        st.info("Nessuna scadenza presente nel database.")
 
 
 
