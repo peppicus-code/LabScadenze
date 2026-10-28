@@ -72,7 +72,7 @@ def init_db():
     
     # Controlliamo se inserire gli utenti iniziali
     res = conn.query("SELECT COUNT(*) as conteggio FROM utenti;", ttl=0)
-    if res.empty or res.iloc['conteggio'] == 0:
+    if res.empty or res.iloc[0]['conteggio'] == 0:
         with conn.session as session:
             # Profilo per il tuo amico AD
             session.execute(text("INSERT INTO utenti (username, password, ruolo) VALUES ('admin', 'admin2026', 'admin') ON CONFLICT DO NOTHING;"))
@@ -102,10 +102,10 @@ if not st.session_state['logged_in']:
         conn = st.connection("postgresql", type="sql")
         user_df = conn.query("SELECT password, ruolo FROM utenti WHERE username = :user;", params={"user": username_input}, ttl=0)
         
-        if not user_df.empty and str(user_df.iloc['password']) == password_input:
+        if not user_df.empty and str(user_df.iloc[0]['password']) == password_input:
             st.session_state['logged_in'] = True
             st.session_state['username'] = username_input
-            st.session_state['ruolo'] = str(user_df.iloc['ruolo'])
+            st.session_state['ruolo'] = str(user_df.iloc[0]['ruolo'])
             st.rerun()
         else:
             st.error("❌ Credenziali errate o utente inesistente. Riprova.")
@@ -170,11 +170,14 @@ if st.session_state.tab == "home":
             id_da_eliminare = st.text_input("Inserisci l'ID numerico dello strumento da rimuovere:")
             if st.button("CONFERMA ELIMINAZIONE"):
                 if id_da_eliminare:
-                    with conn.session as session:
-                        session.execute(text("DELETE FROM scadenze WHERE id = :id;"), {"id": int(id_da_eliminare)})
-                        session.commit()
-                    st.success(f"✅ Strumento con ID {id_da_eliminare} eliminato con successo!")
-                    st.rerun()
+                    try:
+                        with conn.session as session:
+                            session.execute(text("DELETE FROM scadenze WHERE id = :id;"), {"id": int(id_da_eliminare)})
+                            session.commit()
+                        st.success(f"✅ Strumento con ID {id_da_eliminare} eliminato con successo!")
+                        st.rerun()
+                    except ValueError:
+                        st.error("Inserisci un ID numerico valido!")
 
 # SEZIONE INSERIMENTO (NUOVO)
 elif st.session_state.tab == "nuovo":
@@ -207,7 +210,7 @@ elif st.session_state.tab == "report" and ruolo == "admin":
     
     if st.button("GENERA REPORT PDF ORA"):
         conn = st.connection("postgresql", type="sql")
-        df = conn.query("SELECT id, username, strumento, cantiere, data_scadenza, note FROM scadenze ORDER BY data_scadenza ASC;", ttl=0)
+        df = conn.query("SELECT id, username, strumento, cantiere, data_scadenza FROM scadenze ORDER BY data_scadenza ASC;", ttl=0)
         
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter, title="Report Scadenze Technogeo")
@@ -222,15 +225,12 @@ elif st.session_state.tab == "report" and ruolo == "admin":
         for _, row in df.iterrows():
             data.append([str(row['id']), str(row['username']), str(row['strumento']), str(row['cantiere']), str(row['data_scadenza'])])
             
-        t = Table(data, colWidths=[40, 80, 150, 130, 90])
+        t = Table(data, colWidths=[40, 100, 150, 130, 80])
         t.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1E40AF')),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0,0), (-1,0), 8),
-            ('GRID', (0,0), (-1,-1), 1, colors.grey)
-        ]))
-        elements.append(t)
+
         
 
