@@ -4,12 +4,27 @@ import datetime
 import psycopg
 from psycopg.rows import dict_row
 
-# 1. CONFIGURAZIONE PAGINA
+# 1. CONFIGURAZIONE PAGINA BLINDATA (Disattiva i link di sviluppo in alto a destra)
 st.set_page_config(
     page_title="LabScadenze Enterprise",
     page_icon="🔒",
-    layout="wide"
+    layout="wide",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': None
+    }
 )
+
+# CANCELLA VISIVAMENTE I MENU, L'HEADER E IL FOOTER DI STREAMLIT DALLO SCHERMO
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    [data-testid="stDecoration"] {display: none;}
+    </style>
+    """, unsafe_allow_html=True)
 
 # 2. CONNESSIONE DATABASE NEON
 def get_db_connection():
@@ -172,7 +187,7 @@ else:
                         if has_categoria_column:
                             esegui_query("INSERT INTO scadenze (cantiere, descrizione, data_scadenza, categoria) VALUES (%s, %s, %s, %s);", (nuovo_cantiere, nuova_desc, nuova_data, nuova_cat))
                         else:
-                            esegui_query("INSERT INTO scadenze (cantiere, descrizione, data_scadenza) VALUES (%s, %s, %s);", (nuovo_cantiere, nuova_desc, nuova_data))
+                            esegui_query("INSERT INTO scadenze (cantiere, descrizione, data_scadenza) VALUES (%s, %s, %s);", (nuovo_cantiere, Benchmark_desc, nuova_data))
                         st.success("Scadenza registrata correttamente ed inserita nei registri aziendali!")
                         st.rerun()
         
@@ -195,16 +210,7 @@ else:
 
     # VISUALIZZAZIONE TABELLE
     st.subheader("📋 Elenco delle Scadenze Aziendali Attive")
-    rows = esegui_query("SELECT id, cantiere, descrizione, data_scadenza, categoria FROM scadenze ORDER BY data_scadenza ASC;") if has_categoria_column else esegui_query("SELECT id, cantiere, descrizione, data_scadenza FROM scadenze ORDER BY data_scadenza ASC;")
 
-    if rows:
-        raw_df = pd.DataFrame(rows)
-        if not has_categoria_column:
-            raw_df['categoria'] = "👥 Personale"
-        
-        if st.session_state["ruolo"] == "admin":
-            # Eliminazione completa del costrutto nested 'with' che bloccava il compilatore
-            t_pers, t_macch, t_flotta, t_it, t_sedi, t_corp = st.tabs(CATEGORIE_AZIENDALI)
             
 
 
