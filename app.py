@@ -66,11 +66,13 @@ if not st.session_state["logged_in"]:
             st.rerun()
         else:
             res = esegui_query("SELECT nominativo FROM dipendenti WHERE username = %s AND password_accesso = %s;", (username, password))
-            if res:
+            # CORREZIONE: Verifichiamo che res sia una lista non vuota ed estraiamo il primo record [0]
+            if res and len(res) > 0:
+                singolo_utente = res[0]
                 st.session_state["logged_in"] = True
                 st.session_state["ruolo"] = "operaio"
-                st.session_state["utente_nome"] = res["nominativo"]
-                st.success(f"Accesso eseguito come {res['nominativo']}!")
+                st.session_state["utente_nome"] = singolo_utente["nominativo"]
+                st.success(f"Accesso eseguito come {singolo_utente['nominativo']}!")
                 st.rerun()
             else:
                 if username.startswith("operaio") and password == "operaio2026":
@@ -134,10 +136,8 @@ else:
         with tab_op1:
             st.subheader("➕ Inserisci un nuovo Elemento nel Monitoraggio Globale")
             
-            # Estratto dal modulo form: la pagina reagisce ISTANTANEAMENTE al cambio di categoria
             nuova_cat = st.selectbox("Seleziona il tipo di Categoria Asset:", CATEGORIE_AZIENDALI)
             
-            # Messaggi di aiuto dinamici e contestuali basati sulla selezione attuale
             if "Personale" in nuova_cat:
                 st.info("💡 Sottosezione Personale: Monitoraggio per idoneità medica, corsi sulla sicurezza D.Lgs 81/08 e abilitazioni dipendenti.")
                 etichetta_luogo = "Dipendente / Ruolo di Riferimento:"
@@ -157,7 +157,6 @@ else:
                 st.caption(f"Configurazione monitoraggio attiva per adempimenti societari, gare, attestazioni SOA, ISO o fideiussioni.")
                 etichetta_luogo = "Ente / Tipo Adempimento:"
 
-            # Form per i restanti dati testuali
             with st.form("inserimento_scadenza_reattivo", clear_on_submit=True):
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -207,6 +206,8 @@ else:
         
         if st.session_state["ruolo"] == "admin":
             tab_views = st.tabs(CATEGORIE_AZIENDALI)
+            for i, cat_name in enumerate(CATEGORIE_AZIENDALI):
+
 
 
 
