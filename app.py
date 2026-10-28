@@ -43,31 +43,33 @@ st.markdown("""
 # CONNESSIONE AL DATABASE POSTGRESQL ONLINE DI NEON
 def init_db():
     conn = st.connection("postgresql", type="sql")
-    # Creazione tabella scadenze adattata per più utenti
-    conn.query("""
-        CREATE TABLE IF NOT EXISTS scadenze (
-            id SERIAL PRIMARY KEY,
-            username TEXT,
-            strumento TEXT,
-            data_scadenza TEXT,
-            stato TEXT,
-            note TEXT
-        );
-    """, ttl=0)
+    # Usiamo una sessione SQL per i comandi che non restituiscono righe
+    with conn.session as session:
+        session.execute("""
+            CREATE TABLE IF NOT EXISTS scadenze (
+                id SERIAL PRIMARY KEY,
+                username TEXT,
+                strumento TEXT,
+                data_scadenza TEXT,
+                stato TEXT,
+                note TEXT
+            );
+        """)
+        session.execute("""
+            CREATE TABLE IF NOT EXISTS utenti (
+                username TEXT PRIMARY KEY,
+                password TEXT
+            );
+        """)
+        session.commit()
     
-    # Creazione tabella utenti per il login
-    conn.query("""
-        CREATE TABLE IF NOT EXISTS utenti (
-            username TEXT PRIMARY KEY,
-            password TEXT
-        );
-    """, ttl=0)
-    
-    # Inseriamo gli utenti di prova se la tabella è vuota
+    # Controlliamo se inserire gli utenti di prova
     res = conn.query("SELECT COUNT(*) as conteggio FROM utenti;", ttl=0)
-    if res.iloc[0]['conteggio'] == 0:
-        conn.query("INSERT INTO utenti (username, password) VALUES ('mario', 'cantiere2026');", ttl=0)
-        conn.query("INSERT INTO utenti (username, password) VALUES ('tecnico', 'lab2026');", ttl=0)
+    if res.empty or res.iloc[0]['conteggio'] == 0:
+        with conn.session as session:
+            session.execute("INSERT INTO utenti (username, password) VALUES ('mario', 'cantiere2026') ON CONFLICT DO NOTHING;")
+            session.execute("INSERT INTO utenti (username, password) VALUES ('tecnico', 'lab2026') ON CONFLICT DO NOTHING;")
+            session.commit()
 
 try:
     init_db()
@@ -90,7 +92,7 @@ if not st.session_state['logged_in']:
         conn = st.connection("postgresql", type="sql")
         user_df = conn.query("SELECT password FROM utenti WHERE username = :user;", params={"user": username_input}, ttl=0)
         
-        if not user_df.empty and user_df.iloc[0]['password'] == password_input:
+        if not user_df.empty and str(user_df.iloc[0]['password']) == password_input:
             st.session_state['logged_in'] = True
             st.session_state['username'] = username_input
             st.rerun()
