@@ -1,5 +1,4 @@
-
-        import streamlit as st
+import streamlit as st
 import psycopg  # Modificato da psycopg2 a psycopg per allinearsi ai tuoi requisiti
 from psycopg.rows import dict_row  # Ottiene i dati come dizionari (sostituisce RealDictCursor)
 
