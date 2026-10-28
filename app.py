@@ -203,10 +203,10 @@ else:
             raw_df['categoria'] = "👥 Personale"
         
         if st.session_state["ruolo"] == "admin":
-            # Tab dichiarati esplicitamente uno per uno per evitare cicli for problematici
-            t_pers, t_macch, t_flotta, t_it, t_sedi, t_corp = st.tabs(CATEGORIE_AZIENDALI)
+            # Dichiarazione ad elementi singoli indicizzati, matematicamente sicura per Python e Streamlit
+            lista_tab = st.tabs(CATEGORIE_AZIENDALI)
             
-            with t_pers:
+            with lista_tab[0]:
 
 
 
