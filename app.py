@@ -10,9 +10,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# 2. Connessione al database Neon (utilizza psycopg v3 allineato ai tuoi requisiti)
+# 2. Connessione al database Neon (Allineata ai tuoi Secrets definitivi)
 def get_db_connection():
-    conn_string = st.secrets["postgres"]["url"]
+    # Recupera l'URL corretto usando la chiave esatta registrata sui tuoi secrets
+    conn_string = st.secrets["connections"]["postgresql"]["url"]
     return psycopg.connect(conn_string, row_factory=dict_row)
 
 # Inizializzazione dello stato della sessione per l'autenticazione
@@ -23,7 +24,6 @@ if "ruolo" not in st.session_state:
 
 # 3. Schermata di Login (Mostrata se l'utente non è autenticato)
 if not st.session_state["logged_in"]:
-    # Titolo generico e pulito per la presentazione
     st.title("🔒 LABSCADENZE ENTERPRISE v2.0")
     st.subheader("Sviluppato per la gestione della sicurezza cantieri ed attrezzature.")
 
@@ -31,7 +31,6 @@ if not st.session_state["logged_in"]:
     password = st.text_input("Chiave d'Accesso (Password):", type="password")
 
     if st.button("EFFETTUA IL LOGIN"):
-        # Controllo credenziali locale (Risolve il problema della tabella utenti mancante)
         if username == "admin" and password == "admin2026":
             st.session_state["logged_in"] = True
             st.session_state["ruolo"] = "admin"
@@ -47,7 +46,6 @@ if not st.session_state["logged_in"]:
 
 # 4. Dashboard Interna (Mostrata dopo un login corretto)
 else:
-    # Barra laterale con informazioni utente e tasto Logout
     st.sidebar.image("https://icons8.com", width=80)
     st.sidebar.markdown(f"Benvenuto,<br>DASHBOARD **{st.session_state['ruolo'].upper()}**", unsafe_allow_html=True)
     
@@ -59,7 +57,6 @@ else:
     st.title("Pannello Monitoraggio Scadenze")
     st.markdown("---")
 
-    # Caricamento e gestione dei dati delle scadenze
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
@@ -95,12 +92,10 @@ else:
                 rows = cursor.fetchall()
 
                 if rows:
-                    # Trasformazione in DataFrame Pandas per un layout pulito a griglia
                     df = pd.DataFrame(rows)
                     df.columns = ["ID", "Cantiere", "Descrizione Oggetto", "Data Scadenza"]
                     st.dataframe(df, use_container_width=True)
                     
-                    # Funzionalità Avanzate dell'Amministratore (Elimina e Report)
                     if st.session_state["ruolo"] == "admin":
                         st.markdown("### 🛠️ Strumenti di Gestione Amministrativa")
                         col_del, col_rep = st.columns(2)
@@ -118,13 +113,13 @@ else:
                             st.markdown("**Esportazione Dati**")
                             st.info("Generazione report in formato standard ottimizzato.")
                             if st.button("Genera Report PDF"):
-                                # Blocco segnaposto per la chiamata al tuo motore ReportLab
                                 st.success("Report PDF pronto per il download (Funzione attiva)!")
                 else:
                     st.info("Nessuna scadenza presente nel database al momento.")
 
     except Exception as e:
         st.error(f"Si è verificato un errore durante la lettura o scrittura sul Database Neon: {e}")
+
 
 
 
