@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from sqlalchemy import text
 
 # CONFIGURAZIONE PAGINA AD ALTO CONTRASTO
 st.set_page_config(page_title="LabScadenze Pro", layout="wide", initial_sidebar_state="collapsed")
@@ -43,9 +44,9 @@ st.markdown("""
 # CONNESSIONE AL DATABASE POSTGRESQL ONLINE DI NEON
 def init_db():
     conn = st.connection("postgresql", type="sql")
-    # Usiamo una sessione SQL per i comandi che non restituiscono righe
+    # Usiamo una sessione SQL con comandi esplicitamente dichiarati come text()
     with conn.session as session:
-        session.execute("""
+        session.execute(text("""
             CREATE TABLE IF NOT EXISTS scadenze (
                 id SERIAL PRIMARY KEY,
                 username TEXT,
@@ -54,21 +55,21 @@ def init_db():
                 stato TEXT,
                 note TEXT
             );
-        """)
-        session.execute("""
+        """))
+        session.execute(text("""
             CREATE TABLE IF NOT EXISTS utenti (
                 username TEXT PRIMARY KEY,
                 password TEXT
             );
-        """)
+        """))
         session.commit()
     
     # Controlliamo se inserire gli utenti di prova
     res = conn.query("SELECT COUNT(*) as conteggio FROM utenti;", ttl=0)
     if res.empty or res.iloc[0]['conteggio'] == 0:
         with conn.session as session:
-            session.execute("INSERT INTO utenti (username, password) VALUES ('mario', 'cantiere2026') ON CONFLICT DO NOTHING;")
-            session.execute("INSERT INTO utenti (username, password) VALUES ('tecnico', 'lab2026') ON CONFLICT DO NOTHING;")
+            session.execute(text("INSERT INTO utenti (username, password) VALUES ('mario', 'cantiere2026') ON CONFLICT DO NOTHING;"))
+            session.execute(text("INSERT INTO utenti (username, password) VALUES ('tecnico', 'lab2026') ON CONFLICT DO NOTHING;"))
             session.commit()
 
 try:
@@ -144,7 +145,7 @@ elif st.session_state.tab == "nuovo":
             conn = st.connection("postgresql", type="sql")
             with conn.session as session:
                 session.execute(
-                    "INSERT INTO scadenze (username, strumento, data_scadenza, stato, note) VALUES (:username, :strumento, :data_scadenza, :stato, :note);",
+                    text("INSERT INTO scadenze (username, strumento, data_scadenza, stato, note) VALUES (:username, :strumento, :data_scadenza, :stato, :note);"),
                     {"username": username, "strumento": strum, "data_scadenza": data_scad, "stato": "In Regola", "note": note_strum}
                 )
                 session.commit()
@@ -153,3 +154,4 @@ elif st.session_state.tab == "nuovo":
             st.rerun()
         else:
             st.error("Compila i campi Nome e Data!")
+
