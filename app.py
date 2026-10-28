@@ -42,16 +42,14 @@ if not st.session_state["logged_in"]:
             st.success("Accesso Amministratore eseguito!")
             st.rerun()
         else:
-            # Verifica dinamica sul database dei dipendenti registrati
+            # Verifica dinamica sul database dei dipendenti registrati (CORRETTA)
             try:
                 with get_db_connection() as conn:
                     with conn.cursor() as cursor:
                         cursor.execute(
-                            "SELECT nominativo FROM dipendenti WHERE username = %s AND password_access_o = %s OR (username = %s AND password_accesso = %s);",
-                            (username, password, username, password) # fallback di sicurezza per i campi
+                            "SELECT nominativo FROM dipendenti WHERE username = %s AND password_accesso = %s;", 
+                            (username, password)
                         )
-                        # Per compatibilità esatta con la colonna creata:
-                        cursor.execute("SELECT nominativo FROM dipendenti WHERE username = %s AND password_accesso = %s;", (username, password))
                         user_record = cursor.fetchone()
                         
                         if user_record:
@@ -61,7 +59,7 @@ if not st.session_state["logged_in"]:
                             st.success(f"Accesso eseguito come {user_record['nominativo']}!")
                             st.rerun()
                         else:
-                            # Fallback temporaneo per non bloccare il vecchio metodo se serve durante il passaggio
+                            # Fallback temporaneo per utenti vecchio stile
                             if username.startswith("operaio") and password == "operaio2026":
                                 st.session_state["logged_in"] = True
                                 st.session_state["ruolo"] = "operaio"
@@ -90,7 +88,7 @@ else:
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 
-                # PANNELLO AMMINISTRATORE (Inserimento Scadenze + NUOVA GESTIONE DIPENDENTI)
+                # PANNELLO AMMINISTRATORE (Inserimento Scadenze + GESTIONE DIPENDENTI)
                 if st.session_state["ruolo"] == "admin":
                     tab1, tab2 = st.tabs(["📅 Gestione Scadenze", "👥 Registro Anagrafica Dipendenti"])
                     
@@ -122,7 +120,7 @@ else:
                         with col_dep2:
                             reg_user = st.text_input("Username per il Login (es: m.rossi):")
                         with col_dep3:
-                            reg_pass = st.text_input("Password Password di Accesso:", type="password", key="reg_pass")
+                            reg_pass = st.text_input("Password di Accesso:", type="password", key="reg_pass")
                         
                         if st.button("Abilita e Registra Dipendente"):
                             if reg_nome and reg_user and reg_pass:
