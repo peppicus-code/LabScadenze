@@ -195,8 +195,7 @@ else:
 
     # VISUALIZZAZIONE TABELLE
     st.subheader("📋 Elenco delle Scadenze Aziendali Attive")
-    sql_select = "SELECT id, cantiere, descrizione, data_scadenza, categoria FROM scadenze ORDER BY data_scadenza ASC;"
-    rows = esegui_query(sql_select)
+    rows = esegui_query("SELECT id, cantiere, descrizione, data_scadenza, categoria FROM scadenze ORDER BY data_scadenza ASC;") if has_categoria_column else esegui_query("SELECT id, cantiere, descrizione, data_scadenza FROM scadenze ORDER BY data_scadenza ASC;")
 
     if rows:
         raw_df = pd.DataFrame(rows)
@@ -204,11 +203,10 @@ else:
             raw_df['categoria'] = "👥 Personale"
         
         if st.session_state["ruolo"] == "admin":
-            tab_views = st.tabs(CATEGORIE_AZIENDALI)
-            for i, cat_name in enumerate(CATEGORIE_AZIENDALI):
-                with tab_views[i]:
-                    df_filtrato = raw_df[raw_df['categoria'] == cat_name]
-                    if not df_filtrato.empty:
+            # Tab dichiarati esplicitamente uno per uno per evitare cicli for problematici
+            t_pers, t_macch, t_flotta, t_it, t_sedi, t_corp = st.tabs(CATEGORIE_AZIENDALI)
+            
+            with t_pers:
 
 
 
